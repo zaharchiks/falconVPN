@@ -33,6 +33,9 @@ npm run build`;
   const codeRunPm2 = `# Установите PM2 глобально
 sudo npm install -g pm2
 
+# Очистите старый процесс, если он уже запущен (чтобы избежать ошибки "already launched"):
+pm2 delete vless-panel 2>/dev/null || true
+
 # Запустите проект с указанием внешнего URL (для работы Telegram Bot ссылок)
 APP_URL="https://${domain || 'falconvpn.c6t.ru'}" pm2 start dist/server.cjs --name "vless-panel"
 
