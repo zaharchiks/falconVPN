@@ -8,6 +8,7 @@ interface DeployTabProps {
 
 export function DeployTab({ lang, showToast }: DeployTabProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [domain, setDomain] = useState('falconvpn.c6t.ru');
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -33,7 +34,7 @@ npm run build`;
 sudo npm install -g pm2
 
 # Запустите проект с указанием внешнего URL (для работы Telegram Bot ссылок)
-APP_URL="http://ВАШ_IP_VPS" pm2 start dist/server.cjs --name "vless-panel"
+APP_URL="https://${domain || 'falconvpn.c6t.ru'}" pm2 start dist/server.cjs --name "vless-panel"
 
 # Настройте автозапуск PM2 при перезагрузке сервера
 pm2 startup
@@ -41,7 +42,7 @@ pm2 save`;
 
   const codeNginx = `server {
     listen 80;
-    server_name ВАШ_ДОМЕН_ИЛИ_IP;
+    server_name ${domain || 'falconvpn.c6t.ru'};
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -73,6 +74,26 @@ pm2 save`;
             </>
           )}
         </p>
+
+        {/* Dynamic Domain Input */}
+        <div className="mb-6 bg-slate-950/60 border border-slate-850 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-mono">
+              <Globe size={14} className="text-cyan-400 animate-pulse" />
+              {lang === 'RU' ? 'УКАЖИТЕ ВАШ ДОМЕН:' : 'ENTER YOUR DOMAIN:'}
+            </h4>
+            <p className="text-[10px] text-slate-400 leading-normal">
+              {lang === 'RU' ? 'Все команды, Nginx конфиги и SSL параметры ниже автоматически перестроятся под этот домен.' : 'All commands, Nginx server blocks, and SSL generation commands below will dynamically update.'}
+            </p>
+          </div>
+          <input
+            type="text"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            placeholder="falconvpn.c6t.ru"
+            className="bg-slate-900 border border-slate-800 text-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 font-mono w-full md:w-64 tracking-wide"
+          />
+        </div>
 
         {/* Step 1 */}
         <div className="space-y-3 mb-6">
@@ -144,7 +165,7 @@ pm2 save`;
         </div>
 
         {/* Step 4 */}
-        <div className="space-y-3">
+        <div className="space-y-3 mb-6">
           <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-mono">
             <span className="flex items-center justify-center h-5 w-5 rounded bg-cyan-950 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold">4</span>
             {lang === 'RU' ? 'Настройка Nginx Proxy (Рекомендуется)' : 'Nginx Reverse Proxy Configuration (Recommended)'}
@@ -164,6 +185,153 @@ pm2 save`;
               <span>{copiedId === 'nginx' ? (lang === 'RU' ? 'Скопировано!' : 'Copied!') : (lang === 'RU' ? 'Копировать' : 'Copy')}</span>
             </button>
           </div>
+        </div>
+
+        {/* Step 5 */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-mono">
+            <span className="flex items-center justify-center h-5 w-5 rounded bg-cyan-950 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold">5</span>
+            {lang === 'RU' ? 'Настройка бесплатного SSL-сертификата (Let\'s Encrypt)' : 'Configure Free SSL Certificate (Let\'s Encrypt)'}
+          </h3>
+          <p className="text-[11px] text-slate-400 pl-6 leading-normal">
+            {lang === 'RU' ? (
+              <>
+                ⚠️ <strong className="text-amber-400 font-medium">Самоподписанные сертификаты НЕ подходят для Telegram!</strong> Telegram Web Apps строго требуют доверенный SSL-сертификат от официального центра сертификации. Если использовать самоподписанный, бот выдаст ошибку <code className="bg-slate-950 text-rose-400 px-1 py-0.5 rounded font-mono">небезопасная схема http запрещена</code>.
+                <br /><br />
+                Самый простой способ — получить абсолютно бесплатный доверенный SSL-сертификат через <strong className="text-cyan-400 font-medium">Certbot (Let's Encrypt)</strong>. Для этого у вас должен быть зарегистрирован любой домен (или поддомен), направленный на IP вашего VPS.
+                <br /><br />
+                Выполните следующие команды для автоматической установки SSL на ваш Nginx:
+              </>
+            ) : (
+              <>
+                ⚠️ <strong className="text-amber-400 font-medium">Self-signed certificates DO NOT work for Telegram!</strong> Telegram Web Apps strictly require a trusted SSL certificate from an official CA. If you use a self-signed one, Telegram will still block it.
+                <br /><br />
+                The easiest way is to get a completely free trusted SSL certificate via <strong className="text-cyan-400 font-medium">Certbot (Let's Encrypt)</strong>. You must have a domain pointing to your VPS IP.
+                <br /><br />
+                Execute these commands to automatically install and configure SSL on Nginx:
+              </>
+            )}
+          </p>
+          <div className="pl-6 relative">
+            <pre className="p-3 bg-slate-950 border border-slate-850 rounded-lg text-[10px] font-mono text-slate-300 overflow-x-auto leading-normal">
+{`# Установите Certbot и плагин для Nginx
+sudo apt update
+sudo apt install certbot python3-certbot-nginx -y
+
+# Получите бесплатный SSL-сертификат (замените vpn.mydomain.com на ваш домен)
+# Certbot автоматически настроит HTTPS и редирект в Nginx!
+sudo certbot --nginx -d vpn.mydomain.com`}
+            </pre>
+            <button
+              onClick={() => copyToClipboard(`sudo apt update\nsudo apt install certbot python3-certbot-nginx -y\nsudo certbot --nginx -d vpn.mydomain.com`, 'ssl')}
+              className="absolute right-3 top-3 bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white px-2 py-1 rounded text-[9px] font-bold cursor-pointer flex items-center gap-1 border border-slate-700/50"
+            >
+              {copiedId === 'ssl' ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+              <span>{copiedId === 'ssl' ? (lang === 'RU' ? 'Скопировано!' : 'Copied!') : (lang === 'RU' ? 'Копировать' : 'Copy')}</span>
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 pl-6 leading-normal">
+            {lang === 'RU' ? (
+              <>
+                После успешного выполнения Certbot автоматически обновит конфигурацию Nginx, переведя панель на защищенный <code className="text-cyan-400">https://ваш_домен</code>. Теперь Telegram Web App будет работать корректно и без ошибок!
+                <br /><br />
+                🛠️ <strong className="text-amber-400 font-medium">Если Certbot выдал ошибку "Could not install certificate" или не нашел server block:</strong>
+                <br />
+                Это означает, что сертификат <strong className="text-emerald-400 font-medium">успешно получен</strong>, но Certbot не смог автоматически изменить ваши файлы конфигурации. В этом случае настройте Nginx вручную. Замените содержимое конфигурационного файла (например, <code className="bg-slate-950 text-slate-300 px-1 py-0.5 rounded font-mono">/etc/nginx/sites-available/default</code>) на следующее:
+              </>
+            ) : (
+              <>
+                Upon successful run, Certbot will automatically rewrite your Nginx configuration, securing your site at <code className="text-cyan-400">https://your_domain</code>. Your Telegram Web App will now load successfully!
+                <br /><br />
+                🛠️ <strong className="text-amber-400 font-medium">If Certbot fails with "Could not install certificate" or cannot find your server block:</strong>
+                <br />
+                This means your certificate was <strong className="text-emerald-400 font-medium">successfully generated</strong>, but Certbot couldn't auto-edit your config. Simply rewrite your Nginx config file manually (e.g. <code className="bg-slate-950 text-slate-300 px-1 py-0.5 rounded font-mono">/etc/nginx/sites-available/default</code>) with the following structure:
+              </>
+            )}
+          </p>
+
+          <div className="pl-6 relative">
+            <pre className="p-3 bg-slate-950 border border-slate-850 rounded-lg text-[10px] font-mono text-slate-300 overflow-x-auto leading-normal">
+{`server {
+    listen 80;
+    server_name ${domain || 'falconvpn.c6t.ru'};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${domain || 'falconvpn.c6t.ru'};
+
+    ssl_certificate /etc/letsencrypt/live/${domain || 'falconvpn.c6t.ru'}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${domain || 'falconvpn.c6t.ru'}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}`}
+            </pre>
+            <button
+              onClick={() => copyToClipboard(`server {
+    listen 80;
+    server_name ${domain || 'falconvpn.c6t.ru'};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${domain || 'falconvpn.c6t.ru'};
+
+    ssl_certificate /etc/letsencrypt/live/${domain || 'falconvpn.c6t.ru'}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${domain || 'falconvpn.c6t.ru'}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}`, 'manual_ssl')}
+              className="absolute right-3 top-3 bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white px-2 py-1 rounded text-[9px] font-bold cursor-pointer flex items-center gap-1 border border-slate-700/50"
+            >
+              {copiedId === 'manual_ssl' ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+              <span>{copiedId === 'manual_ssl' ? (lang === 'RU' ? 'Скопировано!' : 'Copied!') : (lang === 'RU' ? 'Копировать' : 'Copy')}</span>
+            </button>
+          </div>
+
+          <p className="text-[11px] text-slate-400 pl-6 leading-normal">
+            {lang === 'RU' ? (
+              <>
+                Заменив конфигурацию, примените её командами:
+                <br />
+                <code className="bg-slate-950 text-cyan-400 px-1 py-0.5 rounded font-mono">sudo nginx -t</code> (проверка корректности) и <code className="bg-slate-950 text-cyan-400 px-1 py-0.5 rounded font-mono">sudo systemctl reload nginx</code>.
+              </>
+            ) : (
+              <>
+                After rewriting the config, apply changes using:
+                <br />
+                <code className="bg-slate-950 text-cyan-400 px-1 py-0.5 rounded font-mono">sudo nginx -t</code> (syntax test) and <code className="bg-slate-950 text-cyan-400 px-1 py-0.5 rounded font-mono">sudo systemctl reload nginx</code>.
+              </>
+            )}
+          </p>
         </div>
       </div>
     </div>
