@@ -1,0 +1,6 @@
+{
+  "name": "VLESS Reality Panel",
+  "description": "Панель управления пользователями и генератор конфигураций для VPN на протоколе VLESS + Reality.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
