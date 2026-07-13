@@ -244,6 +244,18 @@ export default function App() {
       return;
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(formUuid)) {
+      showToast(
+        lang === 'RU' 
+          ? 'Ошибка: UUID должен иметь стандартный формат (например: 12345678-1234-1234-1234-1234567890ab)' 
+          : 'Error: Key must be a valid standard UUID (e.g. 12345678-1234-1234-1234-1234567890ab)', 
+        'error'
+      );
+      return;
+    }
+
     const clientPayload = {
       name: formName,
       uuid: formUuid,

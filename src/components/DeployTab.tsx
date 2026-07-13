@@ -221,12 +221,12 @@ pm2 save`;
 sudo apt update
 sudo apt install certbot python3-certbot-nginx -y
 
-# Получите бесплатный SSL-сертификат (замените vpn.mydomain.com на ваш домен)
+# Получите бесплатный SSL-сертификат
 # Certbot автоматически настроит HTTPS и редирект в Nginx!
-sudo certbot --nginx -d vpn.mydomain.com`}
+sudo certbot --nginx -d ${domain || 'falconvpn.c6t.ru'}`}
             </pre>
             <button
-              onClick={() => copyToClipboard(`sudo apt update\nsudo apt install certbot python3-certbot-nginx -y\nsudo certbot --nginx -d vpn.mydomain.com`, 'ssl')}
+              onClick={() => copyToClipboard(`sudo apt update\nsudo apt install certbot python3-certbot-nginx -y\nsudo certbot --nginx -d ${domain || 'falconvpn.c6t.ru'}`, 'ssl')}
               className="absolute right-3 top-3 bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white px-2 py-1 rounded text-[9px] font-bold cursor-pointer flex items-center gap-1 border border-slate-700/50"
             >
               {copiedId === 'ssl' ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}

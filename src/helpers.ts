@@ -22,7 +22,7 @@ export function generateShortId(length: number = 8): string {
 // Generate realistic looking Curve25519 / X25519 Private/Public keys (Base64 Url Safe)
 // In a real CLI this uses `xray x25519`. Here we generate compliant-looking base64 keys.
 export function generateKeyPair(): { publicKey: string; privateKey: string } {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   
   const genKey = (len: number) => {
     let key = '';
@@ -32,7 +32,7 @@ export function generateKeyPair(): { publicKey: string; privateKey: string } {
     return key;
   };
 
-  // Standard Curve25519 keys are 43 characters long plus optional padding in standard base64 url-safe
+  // Standard Curve25519 keys are 43 characters long plus optional padding in standard base64
   return {
     privateKey: genKey(43) + '=',
     publicKey: genKey(43) + '='

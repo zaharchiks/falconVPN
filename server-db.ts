@@ -20,7 +20,7 @@ function generateToken(length: number = 12): string {
 
 // Basic Curve25519 placeholder key generator
 function generateKeyPair(): { publicKey: string; privateKey: string } {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const genKey = (len: number) => {
     let key = '';
     for (let i = 0; i < len; i++) {
