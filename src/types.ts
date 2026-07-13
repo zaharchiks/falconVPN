@@ -56,6 +56,7 @@ export interface DatabaseSchema {
   plans: SubscriptionPlan[];
   clients: VpnClient[];
   botConfig: BotConfig;
+  adminPassword?: string;
   payments: Array<{
     id: string;
     clientId: string;

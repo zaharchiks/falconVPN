@@ -1,21 +1,41 @@
 import React, { useState } from 'react';
-import { Send, Check, Settings, Sparkles, HelpCircle, AlertCircle } from 'lucide-react';
+import { Send, Check, Settings, Sparkles, HelpCircle, AlertCircle, Lock } from 'lucide-react';
 import { BotConfig } from '../types';
 
 interface BotTabProps {
   lang: 'RU' | 'EN';
   botConfig: BotConfig;
   onSaveBotConfig: (config: BotConfig) => Promise<void>;
+  onChangePassword?: (currentPass: string, newPass: string) => Promise<void>;
   showToast: (msg: string) => void;
 }
 
-export function BotTab({ lang, botConfig, onSaveBotConfig, showToast }: BotTabProps) {
+export function BotTab({ lang, botConfig, onSaveBotConfig, onChangePassword, showToast }: BotTabProps) {
   const [token, setToken] = useState(botConfig.token);
   const [welcomeRu, setWelcomeRu] = useState(botConfig.welcomeMessageRu);
   const [welcomeEn, setWelcomeEn] = useState(botConfig.welcomeMessageEn);
   const [payDetails, setPayDetails] = useState(botConfig.paymentDetails);
   const [isEnabled, setIsEnabled] = useState(botConfig.isEnabled);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onChangePassword) return;
+    try {
+      setIsChangingPassword(true);
+      await onChangePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (err: any) {
+      // Error will be shown via toast or alert
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,6 +209,49 @@ export function BotTab({ lang, botConfig, onSaveBotConfig, showToast }: BotTabPr
             </li>
           </ul>
         </div>
+
+        {/* Change Admin Password Card */}
+        {onChangePassword && (
+          <div className="bg-slate-900 border border-slate-850 rounded-xl p-4">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-display mb-3 flex items-center gap-1.5 border-b border-slate-850 pb-2">
+              <Lock size={13} className="text-cyan-400" />
+              {lang === 'RU' ? 'Смена пароля админ-панели' : 'Change Admin Password'}
+            </h3>
+            <form onSubmit={handlePasswordSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono">
+                  {lang === 'RU' ? 'Текущий пароль' : 'Current Password'}
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-500 transition"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono">
+                  {lang === 'RU' ? 'Новый пароль' : 'New Password'}
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 transition"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isChangingPassword}
+                className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-750 text-slate-200 hover:text-white font-bold text-[11px] py-1.5 rounded-lg cursor-pointer transition flex items-center justify-center gap-1.5"
+              >
+                <span>{isChangingPassword ? (lang === 'RU' ? 'Сохранение...' : 'Saving...') : (lang === 'RU' ? 'Обновить пароль' : 'Update Password')}</span>
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -296,6 +296,55 @@ initTelegramBot();
 
 // --- API ENDPOINTS ---
 
+// Session token for admin panel (changes on server restart for high security)
+let currentAdminToken = generateShortId(24);
+
+function getAdminPassword(): string {
+  return process.env.ADMIN_PASSWORD || db.getAdminPassword() || 'admin';
+}
+
+// Global Auth Middleware for admin APIs
+app.use((req, res, next) => {
+  // Pass public endpoints
+  if (req.path.startsWith('/api/sub/')) {
+    return next();
+  }
+  if (req.path === '/api/login') {
+    return next();
+  }
+
+  // Verify token
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader === currentAdminToken) {
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Unauthorized' });
+});
+
+// Admin Authentication endpoint
+app.post('/api/login', (req, res) => {
+  const { password } = req.body;
+  if (password === getAdminPassword()) {
+    return res.json({ success: true, token: currentAdminToken });
+  }
+  return res.status(401).json({ error: 'Incorrect password' });
+});
+
+// Admin change-password endpoint
+app.post('/api/admin/change-password', (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const activePassword = getAdminPassword();
+  if (currentPassword !== activePassword) {
+    return res.status(400).json({ error: 'Incorrect current password' });
+  }
+  if (!newPassword || newPassword.trim() === '') {
+    return res.status(400).json({ error: 'New password cannot be empty' });
+  }
+  db.updateAdminPassword(newPassword);
+  return res.json({ success: true });
+});
+
 // Server API
 app.get('/api/servers', (req, res) => {
   res.json(db.getServers());

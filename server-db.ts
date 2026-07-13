@@ -197,7 +197,8 @@ const defaultDatabase: DatabaseSchema = {
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       telegramUsername: undefined
     }
-  ]
+  ],
+  adminPassword: 'admin'
 };
 
 class DatabaseManager {
@@ -225,6 +226,7 @@ class DatabaseManager {
         if (!this.cache!.clients) { this.cache!.clients = []; updated = true; }
         if (!this.cache!.botConfig) { this.cache!.botConfig = defaultDatabase.botConfig; updated = true; }
         if (!this.cache!.payments) { this.cache!.payments = []; updated = true; }
+        if (!this.cache!.adminPassword) { this.cache!.adminPassword = 'admin'; updated = true; }
         
         if (updated) {
           this.save();
@@ -466,6 +468,16 @@ class DatabaseManager {
     }
     
     return { disabledClients };
+  }
+
+  getAdminPassword(): string {
+    return this.getSchema().adminPassword || 'admin';
+  }
+
+  updateAdminPassword(password: string): boolean {
+    this.getSchema().adminPassword = password;
+    this.save();
+    return true;
   }
 }
 

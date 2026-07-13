@@ -3,7 +3,8 @@ import {
   Shield, Activity, Globe, Sparkles, Users, Wifi, 
   Search, UserPlus, FileText, ChevronRight, AlertCircle, 
   Copy, Check, QrCode, CreditCard, Send, X, Layers, 
-  Server, ShieldAlert, Terminal, Settings, Power, RefreshCw
+  Server, ShieldAlert, Terminal, Settings, Power, RefreshCw,
+  Lock, LogOut
 } from 'lucide-react';
 import { VpnClient, VpnServer, SubscriptionPlan, BotConfig } from './types';
 import { generateUuid, generateShortId, generateVlessLink, generateClientSingBoxConfig } from './helpers';
@@ -18,6 +19,14 @@ export default function App() {
   const [lang, setLang] = useState<'RU' | 'EN'>('RU');
   const [activeTab, setActiveTab] = useState<'clients' | 'servers' | 'plans' | 'payments' | 'bot' | 'deploy'>('clients');
   
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return !!localStorage.getItem('admin_token');
+  });
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   // Data State
   const [clients, setClients] = useState<VpnClient[]>([]);
   const [servers, setServers] = useState<VpnServer[]>([]);
@@ -63,15 +72,97 @@ export default function App() {
     setTimeout(() => setGeneralAlert(null), 3000);
   };
 
+  // Authenticated fetch wrapper that automatically attaches the token and checks for 401s
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('admin_token') || '';
+    const headers = {
+      ...options.headers,
+      'Authorization': token,
+    };
+    
+    const res = await fetch(url, { ...options, headers });
+    
+    if (res.status === 401) {
+      localStorage.removeItem('admin_token');
+      setIsAuthenticated(false);
+      throw new Error('Unauthorized');
+    }
+    
+    return res;
+  };
+
+  // Handle Login submission
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginPassword.trim()) {
+      setLoginError(lang === 'RU' ? 'Введите пароль' : 'Please enter password');
+      return;
+    }
+
+    try {
+      setIsLoggingIn(true);
+      setLoginError('');
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.token) {
+        localStorage.setItem('admin_token', data.token);
+        setIsAuthenticated(true);
+        setLoginPassword('');
+        setLoading(true);
+        // Will trigger loadAllData inside useEffect or immediately
+      } else {
+        setLoginError(lang === 'RU' ? 'Неверный пароль администратора!' : 'Invalid admin password!');
+      }
+    } catch (err) {
+      console.error(err);
+      setLoginError(lang === 'RU' ? 'Ошибка связи с сервером' : 'Server connection error');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Handle Change Password from settings tab
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const res = await authFetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      if (res.ok) {
+        showToast(lang === 'RU' ? 'Пароль администратора успешно изменен!' : 'Admin password updated successfully!');
+      } else {
+        const errData = await res.json();
+        showToast(errData.error || (lang === 'RU' ? 'Ошибка смены пароля' : 'Error updating password'), 'error');
+        throw new Error(errData.error);
+      }
+    } catch (err: any) {
+      if (err.message !== 'Unauthorized') {
+        showToast(err.message || (lang === 'RU' ? 'Ошибка сети' : 'Network error'), 'error');
+      }
+      throw err;
+    }
+  };
+
   // Fetch all backend data
   const loadAllData = async () => {
+    if (!localStorage.getItem('admin_token')) {
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
     try {
       const [resClients, resServers, resPlans, resPayments, resBot] = await Promise.all([
-        fetch('/api/clients').then(r => r.json()),
-        fetch('/api/servers').then(r => r.json()),
-        fetch('/api/plans').then(r => r.json()),
-        fetch('/api/payments').then(r => r.json()),
-        fetch('/api/bot-config').then(r => r.json()),
+        authFetch('/api/clients').then(r => r.json()),
+        authFetch('/api/servers').then(r => r.json()),
+        authFetch('/api/plans').then(r => r.json()),
+        authFetch('/api/payments').then(r => r.json()),
+        authFetch('/api/bot-config').then(r => r.json()),
       ]);
       setClients(resClients);
       setServers(resServers);
@@ -86,10 +177,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadAllData();
-    const timer = setInterval(loadAllData, 8000); // refresh statistics and logs every 8s
-    return () => clearInterval(timer);
-  }, []);
+    if (isAuthenticated) {
+      loadAllData();
+      const timer = setInterval(loadAllData, 8000); // refresh statistics and logs every 8s
+      return () => clearInterval(timer);
+    }
+  }, [isAuthenticated]);
 
   // --- CLIENT OPERATIONS ---
 
@@ -165,7 +258,7 @@ export default function App() {
 
     try {
       if (modalType === 'add') {
-        const res = await fetch('/api/clients', {
+        const res = await authFetch('/api/clients', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(clientPayload)
@@ -174,7 +267,7 @@ export default function App() {
           showToast(lang === 'RU' ? 'Пользователь добавлен' : 'Client created successfully');
         }
       } else {
-        const res = await fetch(`/api/clients/${selectedClient?.id}`, {
+        const res = await authFetch(`/api/clients/${selectedClient?.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(clientPayload)
@@ -194,7 +287,7 @@ export default function App() {
   const handleDeleteClient = async (id: string, name: string) => {
     if (window.confirm(lang === 'RU' ? `Вы действительно хотите удалить "${name}"?` : `Are you sure you want to delete client "${name}"?`)) {
       try {
-        const res = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+        const res = await authFetch(`/api/clients/${id}`, { method: 'DELETE' });
         if (res.ok) {
           showToast(lang === 'RU' ? `Пользователь "${name}" успешно удален` : `User "${name}" deleted`);
           loadAllData();
@@ -207,7 +300,7 @@ export default function App() {
 
   const handleToggleClientStatus = async (client: VpnClient) => {
     try {
-      const res = await fetch(`/api/clients/${client.id}`, {
+      const res = await authFetch(`/api/clients/${client.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !client.isActive })
@@ -223,7 +316,7 @@ export default function App() {
 
   // --- SERVER OPERATIONS ---
   const handleCreateServer = async (srv: any) => {
-    await fetch('/api/servers', {
+    await authFetch('/api/servers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(srv)
@@ -232,7 +325,7 @@ export default function App() {
   };
 
   const handleUpdateServer = async (id: string, srv: any) => {
-    await fetch(`/api/servers/${id}`, {
+    await authFetch(`/api/servers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(srv)
@@ -241,13 +334,13 @@ export default function App() {
   };
 
   const handleDeleteServer = async (id: string) => {
-    await fetch(`/api/servers/${id}`, { method: 'DELETE' });
+    await authFetch(`/api/servers/${id}`, { method: 'DELETE' });
     loadAllData();
   };
 
   // --- PLANS OPERATIONS ---
   const handleCreatePlan = async (plan: any) => {
-    await fetch('/api/plans', {
+    await authFetch('/api/plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(plan)
@@ -256,7 +349,7 @@ export default function App() {
   };
 
   const handleUpdatePlan = async (id: string, plan: any) => {
-    await fetch(`/api/plans/${id}`, {
+    await authFetch(`/api/plans/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(plan)
@@ -265,13 +358,13 @@ export default function App() {
   };
 
   const handleDeletePlan = async (id: string) => {
-    await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+    await authFetch(`/api/plans/${id}`, { method: 'DELETE' });
     loadAllData();
   };
 
   // --- BOT CONFIG OPERATIONS ---
   const handleSaveBotConfig = async (cfg: BotConfig) => {
-    await fetch('/api/bot-config', {
+    await authFetch('/api/bot-config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cfg)
@@ -281,7 +374,7 @@ export default function App() {
 
   // --- AUDITING / PAYMENT APPROVAL ---
   const handleApprovePayment = async (id: string) => {
-    const res = await fetch(`/api/payments/${id}/approve`, { method: 'POST' });
+    const res = await authFetch(`/api/payments/${id}/approve`, { method: 'POST' });
     if (res.ok) {
       showToast(lang === 'RU' ? 'Активировано! Ссылка подписки отправлена юзеру в Telegram.' : 'Approved! Key and subscription link pushed to Telegram user.');
       loadAllData();
@@ -289,7 +382,7 @@ export default function App() {
   };
 
   const handleRejectPayment = async (id: string) => {
-    const res = await fetch(`/api/payments/${id}/reject`, { method: 'POST' });
+    const res = await authFetch(`/api/payments/${id}/reject`, { method: 'POST' });
     if (res.ok) {
       showToast(lang === 'RU' ? 'Платеж отклонен модератором' : 'Payment rejected', 'info');
       loadAllData();
@@ -299,7 +392,7 @@ export default function App() {
   // --- REAL SIMULATE TRAFFIC (PERSISTENT ON BACKEND) ---
   const handleSimulateTraffic = async () => {
     try {
-      const res = await fetch('/api/simulate-traffic', { method: 'POST' });
+      const res = await authFetch('/api/simulate-traffic', { method: 'POST' });
       if (res.ok) {
         showToast(lang === 'RU' ? 'Имитация успешна: пользователи израсходовали трафик ⚡' : 'Simulation complete: users consumed random traffic ⚡');
         loadAllData();
@@ -317,6 +410,70 @@ export default function App() {
                           statusFilter === 'active' ? c.isActive : !c.isActive;
     return matchesSearch && matchesStatus;
   });
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#030712] text-slate-100 flex items-center justify-center p-4 selection:bg-cyan-500/30 selection:text-cyan-200 antialiased font-sans">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-2xl p-6 md:p-8 shadow-2xl relative space-y-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="p-3 bg-cyan-600 rounded-xl shadow-md text-white animate-pulse">
+              <Shield size={32} />
+            </div>
+            <h1 className="font-display font-bold text-xl tracking-wider text-white mt-4 uppercase">
+              VLESS REALITY PANEL
+            </h1>
+            <p className="text-xs text-slate-400">
+              {lang === 'RU' ? 'Доступ защищен паролем администратора' : 'Admin Panel is password protected'}
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold font-mono">
+                {lang === 'RU' ? 'Пароль администратора' : 'Admin Password'}
+              </label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={loginPassword}
+                onChange={(e) => {
+                  setLoginPassword(e.target.value);
+                  setLoginError('');
+                }}
+                className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2.5 text-sm text-cyan-300 font-mono focus:outline-none focus:border-cyan-500 transition text-center"
+                autoFocus
+              />
+            </div>
+
+            {loginError && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-400 bg-rose-950/20 border border-rose-500/20 p-2.5 rounded-lg">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-750 disabled:text-slate-500 text-slate-950 font-bold text-xs py-2.5 rounded-lg cursor-pointer transition flex items-center justify-center gap-1.5 shadow-md uppercase tracking-wider"
+            >
+              <Lock size={12} />
+              <span>{isLoggingIn ? (lang === 'RU' ? 'Проверка...' : 'Verifying...') : (lang === 'RU' ? 'Войти в панель' : 'Login')}</span>
+            </button>
+          </form>
+
+          <div className="text-center pt-2 border-t border-slate-850/50">
+            <button
+              onClick={() => setLang(prev => prev === 'RU' ? 'EN' : 'RU')}
+              className="text-[11px] text-slate-500 hover:text-slate-300 transition font-mono"
+            >
+              {lang === 'RU' ? 'Switch to English 🇬🇧' : 'Переключить на Русский 🇷🇺'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const activeClientsCount = clients.filter(c => c.isActive).length;
   const totalUsedTrafficGb = parseFloat(clients.reduce((acc, c) => acc + c.usedTrafficGb, 0).toFixed(1));
@@ -375,6 +532,20 @@ export default function App() {
             >
               <Globe size={12} className="text-cyan-400" />
               <span>{lang === 'RU' ? 'RU/EN' : 'EN/RU'}</span>
+            </button>
+
+            {/* Logout button */}
+            <button
+              onClick={() => {
+                localStorage.removeItem('admin_token');
+                setIsAuthenticated(false);
+                showToast(lang === 'RU' ? 'Вы вышли из системы' : 'Logged out successfully');
+              }}
+              className="flex items-center gap-1 text-[11px] bg-red-950/30 hover:bg-red-900/30 border border-red-500/10 px-2.5 py-1.5 rounded-md font-medium cursor-pointer text-red-400 hover:text-red-300 transition"
+              title="Sign out of Admin Session"
+            >
+              <LogOut size={12} />
+              <span>{lang === 'RU' ? 'Выйти' : 'Logout'}</span>
             </button>
           </div>
         </div>
@@ -690,6 +861,7 @@ export default function App() {
                 lang={lang}
                 botConfig={botConfig}
                 onSaveBotConfig={handleSaveBotConfig}
+                onChangePassword={handleChangePassword}
                 showToast={showToast}
               />
             )}
