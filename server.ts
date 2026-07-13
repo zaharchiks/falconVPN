@@ -305,6 +305,11 @@ function getAdminPassword(): string {
 
 // Global Auth Middleware for admin APIs
 app.use((req, res, next) => {
+  // Only protect API routes
+  if (!req.path.startsWith('/api/')) {
+    return next();
+  }
+
   // Pass public endpoints
   if (req.path.startsWith('/api/sub/')) {
     return next();
