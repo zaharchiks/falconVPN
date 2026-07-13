@@ -35,7 +35,18 @@ function initTelegramBot() {
 
   try {
     console.log('[BOT] Initializing Telegram Bot with token:', config.token.substring(0, 10) + '...');
-    botInstance = new TelegramBot(config.token, { polling: true });
+    const TelegramBotClass = (typeof TelegramBot === 'function'
+      ? TelegramBot
+      : (TelegramBot as any).default || TelegramBot);
+    botInstance = new TelegramBotClass(config.token, { polling: true });
+
+    // Prevent process crashes due to unhandled polling or api errors
+    botInstance.on('polling_error', (error) => {
+      console.error('[BOT] Polling error:', error.message);
+    });
+    botInstance.on('error', (error) => {
+      console.error('[BOT] General error:', error.message);
+    });
 
     // Handle /start command
     botInstance.onText(/\/start/, async (msg) => {
