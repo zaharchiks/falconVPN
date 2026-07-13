@@ -35,11 +35,13 @@ function initTelegramBot() {
 
   try {
     console.log('[BOT] Initializing Telegram Bot with token:', config.token.substring(0, 10) + '...');
-    let TelegramBotClass: any;
-    if (typeof require !== 'undefined') {
-      TelegramBotClass = require('node-telegram-bot-api');
-    } else {
-      TelegramBotClass = TelegramBot;
+    let TelegramBotClass: any = TelegramBot;
+    if (TelegramBotClass && typeof TelegramBotClass !== 'function') {
+      if (TelegramBotClass.default) {
+        TelegramBotClass = TelegramBotClass.default;
+      } else if (TelegramBotClass.TelegramBot) {
+        TelegramBotClass = TelegramBotClass.TelegramBot;
+      }
     }
     botInstance = new TelegramBotClass(config.token, { polling: true });
 
