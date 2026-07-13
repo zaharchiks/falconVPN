@@ -332,6 +332,57 @@ server {
               </>
             )}
           </p>
+
+          {/* Troubleshooting Sub-section */}
+          <div className="mt-4 pl-6">
+            <div className="bg-amber-950/20 border border-amber-500/20 p-4 rounded-xl space-y-3">
+              <h4 className="text-xs font-bold text-amber-400 flex items-center gap-1.5 font-mono">
+                🚨 {lang === 'RU' ? 'РЕШЕНИЕ ОШИБКИ ERR_CONNECTION_CLOSED:' : 'FIXING ERR_CONNECTION_CLOSED:'}
+              </h4>
+              <p className="text-[11px] text-slate-300 leading-normal">
+                {lang === 'RU' ? (
+                  <>
+                    Обычно эта ошибка означает, что Nginx не запущен, упал из-за ошибки в конфигурации или порты заблокированы файрволом. Выполните следующие шаги для исправления:
+                  </>
+                ) : (
+                  <>
+                    This error usually means Nginx is not running, crashed due to a config error, or the ports are blocked by a firewall. Follow these steps to resolve it:
+                  </>
+                )}
+              </p>
+              
+              <ul className="list-decimal list-inside text-[11px] text-slate-400 space-y-2 leading-normal">
+                <li>
+                  <strong className="text-slate-200">{lang === 'RU' ? 'Проверьте ошибки в Nginx:' : 'Check Nginx for errors:'}</strong>
+                  <pre className="mt-1 p-2 bg-slate-950 rounded text-[10px] font-mono text-amber-300/90">sudo nginx -t</pre>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {lang === 'RU' ? 'Если команда выдает ошибку, значит в конфиге Nginx опечатка. Проверьте пути к SSL сертификатам.' : 'If this returns an error, there is a typo in your Nginx configuration. Double check your SSL paths.'}
+                  </span>
+                </li>
+                <li>
+                  <strong className="text-slate-200">{lang === 'RU' ? 'Перезапустите Nginx принудительно:' : 'Force-restart Nginx:'}</strong>
+                  <pre className="mt-1 p-2 bg-slate-950 rounded text-[10px] font-mono text-cyan-400">sudo systemctl restart nginx</pre>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {lang === 'RU' ? 'Именно restart, а не reload, чтобы применить биндинг на порт 443.' : 'Use restart rather than reload to apply the port 443 binding.'}
+                  </span>
+                </li>
+                <li>
+                  <strong className="text-slate-200">{lang === 'RU' ? 'Откройте порты в файрволе сервера (UFW):' : 'Open ports in server firewall (UFW):'}</strong>
+                  <pre className="mt-1 p-2 bg-slate-950 rounded text-[10px] font-mono text-cyan-400">
+{`sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw reload`}
+                  </pre>
+                </li>
+                <li>
+                  <strong className="text-slate-200">{lang === 'RU' ? 'Внешний файрвол провайдера VPS:' : 'VPS Cloud Firewall:'}</strong>
+                  <span className="block mt-0.5 text-slate-400">
+                    {lang === 'RU' ? 'Если вы используете облачный хостинг (например, Aeza, Beget, RuVDS, DigitalOcean и др.), убедитесь, что в личном кабинете провайдера в настройках сети/брандмауэра открыт входящий трафик на порты 80 и 443!' : 'If your hosting provider has a web console firewall (like Aeza, Beget, DigitalOcean), make sure to open ports 80 and 443 in their dashboard.'}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
